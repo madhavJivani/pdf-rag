@@ -15,6 +15,7 @@ async function configureVectorStore(userId) {
     // This will create the collection if it doesn't exist, or use existing one
     // Note: Collection names cannot contain ':' in Qdrant
     const vectorStore = new QdrantVectorStore(embeddings, {
+        apiKey: process.env.QDRANT_API_KEY,
         url: process.env.QDRANT_URL,
         collectionName: `user_${userId}`,
     });
