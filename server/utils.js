@@ -93,6 +93,46 @@ export const splitText = async (pdfName, pdfTextData, pdfImagesData, pdfLinksDat
     return splitDocs;
 }
 
+
+export const splitTextForText = async (userText, chunkSize = 500, chunkOverlap = 0) => {
+    chunkOverlap = ((chunkOverlap < 0) ? 0 : chunkOverlap % chunkSize) || 0;
+    const splitDocs = [];
+    let globalChunkIdx = 1; // Global chunk counter
+    let start = 0;
+    let end = 0;
+
+    while (start < userText.length) {
+        end = Math.min(start + chunkSize, userText.length);
+
+        const chunkWords = userText.slice(start, end);
+
+        if (chunkWords.trim().length > 0) {
+            // chunkMetaData
+            const textChunkMetaData = {
+                fileInfo: {
+                    source: "text",
+                    fileName: "user_input",
+                    totalPages: 1,
+                },
+                pageStats: {
+                    pageNumber: 1,
+                    imagesCount: 0,
+                },
+                chunk: {
+                    index: globalChunkIdx++,
+                    type: "text",
+                    description: chunkWords,
+                }
+            }
+            splitDocs.push({ pageContent: chunkWords, metadata: textChunkMetaData });
+        }
+
+        start += chunkSize - chunkOverlap;
+    }
+
+    return splitDocs;
+}
+
 export const getImageMap = (pdfImagesData) => {
     const imagesMap = {};
 

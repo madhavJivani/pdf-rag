@@ -2,8 +2,8 @@ import fs from 'fs'
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { main as PDFLoader } from '../pdfLoader.js'
-import { splitText } from "../utils.js";
-import { finalResponse, confirmIfVectorSearchNeeded} from "../multiModal.chat.js";
+import { splitText, splitTextForText } from "../utils.js";
+import { finalResponse } from "../multiModal.chat.js";
 
 let vectorStoreInstance = null;
 
@@ -35,24 +35,15 @@ export const uploadPDF = async (req, res) => {
 export const chat = async (req, res) => {
     try {
         const { query, chatHistory } = req.body;
+        const userId = req.userId;
         if (!query) {
             return res.status(400).json({ error: 'Query is required' });
         }
-        if (!vectorStoreInstance) {
-            return res.status(500).json({ error: 'Vector store not initialized' });
-        }
-        // TODO: Not properly working for now.
-        // if(chatHistory){
-        //     // check if query has to do with vectorStore, if yes enhance the query else answer form chatHistory
-        //     const output = await confirmIfVectorSearchNeeded(query, chatHistory);
-        //     if (output.action === "answer") {
-        //         return res.status(200).json({ reply: output.reply, chat: chatHistory });
-        //     }
-        //     query = output.query; // Use the enhanced query for vector search
-        // }
+        // Configure the vector store for the user
+        vectorStoreInstance = await configureVectorStore(userId);
         const results = await chatWithPDF(vectorStoreInstance, query, 3);
         let reply = undefined, chat = undefined;
-        
+
         // Parse chatHistory properly to avoid character array issue
         let validChatHistory = null;
         if (chatHistory) {
@@ -66,7 +57,7 @@ export const chat = async (req, res) => {
                 validChatHistory = null;
             }
         }
-        
+
         if (validChatHistory) {
             const { reply: replyFromChat, chat: chatFromHistory } = await finalResponse(query, results, validChatHistory);
             reply = replyFromChat;
@@ -85,6 +76,27 @@ export const chat = async (req, res) => {
 };
 
 
+export const indexText = async (req, res) => {
+
+    const { userText } = req.body;
+    const userId = req.userId;
+
+    // Configure the vector store for the user
+    vectorStoreInstance = await configureVectorStore(userId);
+
+    if (!userText || userText.trim() === "") {
+        return res.status(400).json({ error: 'Text is required' });
+    }
+    
+    const texts = await splitTextForText(userText, 500, 50);
+
+    console.log("Texts split into chunks:", texts.length);
+
+    await vectorStoreInstance.addDocuments(texts);
+
+    return res.status(200).json({ message: 'Text indexed successfully' });
+}
+
 
 // AI Part
 
@@ -98,6 +110,7 @@ async function configureVectorStore(userId) {
     const vectorStore = new QdrantVectorStore(embeddings, {
         apiKey: process.env.QDRANT_API_KEY,
         url: process.env.QDRANT_URL,
+        // url:"http://localhost:6333",
         collectionName: `user_${userId}`,
     });
 
@@ -124,6 +137,6 @@ async function loadPDF(pdfPath, vectorStore) {
 
 async function chatWithPDF(vectorStore, query, topK) {
     const results = await vectorStore.similaritySearch(query, topK);
-    // console.log("Search Results:", results);
+    console.log("Search Results:", results);
     return results;
 }

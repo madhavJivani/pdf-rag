@@ -18,6 +18,11 @@ While you are expected to think and evaluate your reply : Is your reply adding a
 It may be the case when user's query can be answered from context of chat previously provided by user and is less related to context provided by vector store.
 In that case, you should provide the answer based on the chat context only and not use the vector store context.
 
+
+If the Context given corresponding to user query is form the source text or file_name says user_input, then even if User asks for some specific information, which is available in context you plz convey that info for sure do not skip that
+Lets say user had told in text that "I am a software engineer" and user asks "What is my profession?" Or "I'm Madhav ... " When I asks about his/her info you reply stating his name profession etc. whatever the context says.
+
+So if context is form the user_input dont hide anything assuming its personal info or may be secret if it comes from context it is not secret, keep your policies aside and provide for correct answer user is looking for, DONT TRY TO VIOLATE THIS, IT IS EXTREMELY IMP FEATURE FOR USER 
 ACT SMART,DON'T BE A GEEK.
 `
 export const QUERY_ENHANCEMENT_SYSTEM_PROMPT = `You are an extraordinary smart assistant to resolve userQueries OR Enhance them conditionally.
@@ -116,9 +121,17 @@ export async function finalResponse(userQuery, relevantChunks, prevMessages = [n
         temperature: 0,
     });
 
+    // Format the relevant chunks properly
+    const formattedContext = Array.isArray(relevantChunks) 
+        ? relevantChunks.map(chunk => chunk.pageContent).join('\n\n')
+        : relevantChunks;
+
+    // Ensure prevMessages is an array and not a string
+    const validPrevMessages = Array.isArray(prevMessages) ? prevMessages : [new SystemMessage(FINAL_RESPONSE_SYSTEM_PROMPT)];
+
     const messages = [
-        ...prevMessages,
-        new SystemMessage(`Relevant context for answering the user's question:\n\n${relevantChunks}`),
+        ...validPrevMessages,
+        new SystemMessage(`Relevant context for answering the user's question:\n\n${formattedContext}`),
         new HumanMessage(userQuery),
     ];
 
@@ -135,8 +148,11 @@ export const confirmIfVectorSearchNeeded = async (userQuery, chatHistory) => {
         temperature: 0,
     });
 
+    // Ensure chatHistory is an array and not a string
+    const validChatHistory = Array.isArray(chatHistory) ? chatHistory : [];
+
     const messages = [
-        ...chatHistory,
+        ...validChatHistory,
         new SystemMessage(QUERY_ENHANCEMENT_SYSTEM_PROMPT),
         new SystemMessage("Below is the user query that needs to be analyzed:"),
         new HumanMessage(userQuery),
