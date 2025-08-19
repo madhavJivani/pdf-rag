@@ -19,7 +19,7 @@ router.route("/logout").post(
 );
 
 
-router.route("/").get(
+router.route("/").post(
     upload.none(),
     verifyUser,
     getUser
